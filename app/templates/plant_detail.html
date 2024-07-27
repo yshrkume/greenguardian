@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Plant Detail{% endblock %}
+{% block content %}
+    <h1>{{ plant.name }}</h1>
+    <p>Purchase Date: {{ plant.purchase_date }}</p>
+    <p>Light Conditions: {{ plant.light_conditions }}</p>
+    <p>Watering Frequency: {{ plant.watering_frequency }}</p>
+    <p>Fertilizing Frequency: {{ plant.fertilizing_frequency }}</p>
+    <p>Notes: {{ plant.notes }}</p>
+    <a href="{{ url_for('list_plants') }}" class="btn btn-primary">Back to Plants List</a>
+{% endblock %}

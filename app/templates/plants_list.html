@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Plants List{% endblock %}
+{% block content %}
+<h1>Plants List</h1>
+<a href="{{ url_for('add_plant') }}" class="btn btn-primary">Add New Plant</a>
+<ul>
+    {% for plant in plants %}
+    <li><a href="{{ url_for('plant_detail', plant_id=plant.id) }}">{{ plant.name }}</a></li>
+    {% endfor %}
+</ul>
+<a href="{{ url_for('home') }}" class="btn btn-primary">Back to Home</a>
+{% endblock %}

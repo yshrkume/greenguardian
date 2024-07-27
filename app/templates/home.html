@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+    <h1>Welcome to GreenGuardian</h1>
+    {% if current_user.is_authenticated %}
+        Hello, {{ user.username }}
+        <h2>Upcoming Watering Notifications</h2>
+        <ul>
+            {% for plant in upcoming_watering_plants %}
+            <li>{{ plant.name }}: Next watering on {{ plant.next_watering_date().strftime('%Y-%m-%d') }}</li>
+            {% endfor %}
+        </ul>
+        <a href="{{ url_for('notifications') }}" class="btn btn-primary">View All Notifications</a>
+
+        <h2>Your Plants</h2>
+        {% if plants %}
+            <ul>
+                {% for plant in plants %}
+                <li><a href="{{ url_for('plant_detail', plant_id=plant.id) }}">{{ plant.name }}</a></li>
+                {% endfor %}
+            </ul>
+            <a href="{{ url_for('list_plants') }}" class="btn btn-primary">View All Plants</a>
+        {% else %}
+            <p>You haven't registered any plants yet. Start by adding your first plant to begin managing its care effectively.</p>
+            <a href="{{ url_for('add_plant') }}" class="btn btn-primary">Add Your First Plant</a>
+        {% endif %}
+    {% else %}
+        <p>By creating an account you’ll receive personalized care notifications and expert advice tailored to your specific plants.</p>
+        <p>Keep your plants healthy with timely reminders for watering and fertilizing.</p>
+        <p>Track your plant's growth and care history, and join our community to share tips and learn from other plant enthusiasts.</p>
+        <p>Start now and ensure your plants thrive!</p>
+        <p>Please <a href="{{ url_for('login') }}">log in</a> or <a href="{{ url_for('signup') }}">sign up</a>.</p>
+{% endif %}
+{% endblock %}

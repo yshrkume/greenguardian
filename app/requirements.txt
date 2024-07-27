@@ -1,0 +1,10 @@
+Flask
+flask_sqlalchemy
+flask_login
+pymysql
+flask_wtf
+Werkzeug
+email_validator
+cryptography
+flask-migrate
+remote-pdb

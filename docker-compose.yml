@@ -1,0 +1,24 @@
+services:
+  db:
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: flaskdb
+    ports:
+      - "3306:3306"
+
+  web-dev:
+    build: .
+    command: flask run --host=0.0.0.0 --port=5000 --reload
+    volumes:
+      - ./app:/app
+    ports:
+      - "5001:5000"
+      - "4444:4444"
+    depends_on:
+      - db
+    environment:
+      FLASK_ENV: development
+      FLASK_APP: /app/app.py
+      DATABASE_URL: mysql+pymysql://root:password@db/flaskdb
