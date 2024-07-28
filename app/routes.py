@@ -14,8 +14,7 @@ def home():
         upcoming_watering_plants = [
             plant
             for plant in plants
-            if plant.next_watering_date()
-            and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
+            if plant.next_watering_date() and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
         ]
         return render_template(
             "home.html",
@@ -113,12 +112,9 @@ def notifications():
         upcoming_watering_plants = [
             plant
             for plant in plants
-            if plant.next_watering_date()
-            and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
+            if plant.next_watering_date() and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
         ]
-        return render_template(
-            "notifications.html", upcoming_watering_plants=upcoming_watering_plants
-        )
+        return render_template("notifications.html", upcoming_watering_plants=upcoming_watering_plants)
     else:
         flash("You need to be logged in to access this page.")
         return redirect(url_for("login"))
