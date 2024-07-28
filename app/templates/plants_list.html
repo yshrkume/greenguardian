@@ -2,11 +2,20 @@
 {% block title %}Plants List{% endblock %}
 {% block content %}
 <h1>Plants List</h1>
+<a href="{{ url_for('home') }}" class="btn btn-primary">Back to Home</a>
 <a href="{{ url_for('add_plant') }}" class="btn btn-primary">Add New Plant</a>
+<form method="get" action="{{ url_for('list_plants') }}" class="form-inline my-2 my-lg-0">
+    <input class="form-control mr-sm-2" type="search" placeholder="Search for your plants" aria-label="Search" name="query" value="{{ query or '' }}">
+    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+</form>
 <ul>
     {% for plant in plants %}
-    <li><a href="{{ url_for('plant_detail', plant_id=plant.id) }}">{{ plant.name }}</a></li>
+    <li>
+        <a href="{{ url_for('plant_detail', plant_id=plant.id) }}">{{ plant.name }}</a>
+        <form action="{{ url_for('delete_plant', plant_id=plant.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this plant? This action cannot be undone.');">
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+        </form>
+    </li>
     {% endfor %}
 </ul>
-<a href="{{ url_for('home') }}" class="btn btn-primary">Back to Home</a>
 {% endblock %}

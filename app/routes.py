@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import render_template, redirect, url_for, flash, request
 from app import app, db, login_manager
-from app.forms import SignupForm, LoginForm, PlantForm
+from app.forms import SignupForm, LoginForm, PlantForm, UpdateAccountForm
 from app.models import User, Plant
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
@@ -14,7 +14,8 @@ def home():
         upcoming_watering_plants = [
             plant
             for plant in plants
-            if plant.next_watering_date() and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
+            if plant.next_watering_date()
+            and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
         ]
         return render_template(
             "home.html",
@@ -69,8 +70,14 @@ def load_user(id):
 @app.route("/plants", methods=["GET", "POST"])
 @login_required
 def list_plants():
-    plants = Plant.query.filter_by(owner_id=current_user.id).all()
-    return render_template("plants_list.html", plants=plants)
+    query = request.args.get("query")
+    if query:
+        plants = Plant.query.filter(
+            Plant.owner_id == current_user.id, Plant.name.ilike(f"%{query}%")
+        ).all()
+    else:
+        plants = Plant.query.filter_by(owner_id=current_user.id).all()
+    return render_template("plants_list.html", plants=plants, query=query)
 
 
 @app.route("/plant/<int:plant_id>")
@@ -104,6 +111,19 @@ def add_plant():
     return render_template("add_plant.html", form=form)
 
 
+@app.route("/delete_plant/<int:plant_id>", methods=["POST"])
+@login_required
+def delete_plant(plant_id):
+    plant = Plant.query.get_or_404(plant_id)
+    if plant.owner_id != current_user.id:
+        flash("You do not have permission to delete this plant.")
+        return redirect(url_for("list_plants"))
+    db.session.delete(plant)
+    db.session.commit()
+    flash("Plant has been deleted successfully.")
+    return redirect(url_for("list_plants"))
+
+
 @app.route("/notifications")
 @login_required
 def notifications():
@@ -112,9 +132,30 @@ def notifications():
         upcoming_watering_plants = [
             plant
             for plant in plants
-            if plant.next_watering_date() and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
+            if plant.next_watering_date()
+            and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
         ]
-        return render_template("notifications.html", upcoming_watering_plants=upcoming_watering_plants)
+        return render_template(
+            "notifications.html", upcoming_watering_plants=upcoming_watering_plants
+        )
     else:
         flash("You need to be logged in to access this page.")
         return redirect(url_for("login"))
+
+
+@app.route("/account", methods=["GET", "POST"])
+@login_required
+def account():
+    form = UpdateAccountForm()
+    if form.validate_on_submit():
+        current_user.username = form.username.data
+        current_user.email = form.email.data
+        if form.password.data:
+            current_user.set_password(form.password.data)
+        db.session.commit()
+        flash("Your account has been updated.")
+        return redirect(url_for("account"))
+    elif request.method == "GET":
+        form.username.data = current_user.username
+        form.email.data = current_user.email
+    return render_template("account.html", title="Account", form=form)

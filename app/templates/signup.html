@@ -2,6 +2,7 @@
 {% block title %}Sign Up{% endblock %}
 {% block content %}
 <h1>Sign Up</h1>
+<p>Registering an account is quick and easy. You can complete the registration form in under a minute.</p>
 <form method="POST">
     {{ form.hidden_tag() }}
     <div class="form-group">
@@ -16,6 +17,7 @@
     <div class="form-group">
         {{ form.confirm_password.label }} {{ form.confirm_password(class_="form-control") }}
     </div>
+    <p>Note: You can edit your username even after registration.</p>
     <div class="form-group">
         {{ form.submit(class_="btn btn-primary") }}
     </div>

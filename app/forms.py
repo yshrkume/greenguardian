@@ -14,7 +14,9 @@ class SignupForm(FlaskForm):
     username = StringField("Username", validators=[DataRequired()])
     email = StringField("Email", validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired()])
-    confirm_password = PasswordField("Confirm Password", validators=[DataRequired(), EqualTo("password")])
+    confirm_password = PasswordField(
+        "Confirm Password", validators=[DataRequired(), EqualTo("password")]
+    )
     submit = SubmitField("Sign Up")
 
 
@@ -55,3 +57,13 @@ class PlantForm(FlaskForm):
     )
     notes = TextAreaField("Notes")
     submit = SubmitField("Save")
+
+
+class UpdateAccountForm(FlaskForm):
+    username = StringField("Username", validators=[DataRequired()])
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password")
+    confirm_password = PasswordField(
+        "Confirm Password", validators=[EqualTo("password")]
+    )
+    submit = SubmitField("Update")
