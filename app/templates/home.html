@@ -2,8 +2,8 @@
 {% block title %}Home{% endblock %}
 {% block content %}
     <h1>Welcome to GreenGuardian</h1>
-    {% if current_user.is_authenticated %}
-        Hello, {{ user.username }}
+    {% if user %}
+        Hello, {{ user['username'] }}
         <h2>Upcoming Watering Notifications</h2>
         <ul>
             {% for plant in upcoming_watering_plants %}
