@@ -21,19 +21,28 @@ from flask_jwt_extended import (
 AUTH_SERVICE_URL = "http://auth_service:5000"
 PLANT_SERVICE_URL = "http://plant_service:5000"
 
+
 @app.route("/")
 @jwt_required(optional=True, locations=["cookies"])
 def home():
     user = get_jwt_identity()
     if user:
-        response = requests.get(f"{PLANT_SERVICE_URL}/plants", params={"user_id": user["id"]})
+        response = requests.get(
+            f"{PLANT_SERVICE_URL}/plants", params={"user_id": user["id"]}
+        )
         if response.status_code == 200:
             plants = response.json()
 
             upcoming_watering_plants = [
-                plant for plant in plants
-                if plant.get('next_watering_date') and
-                   0 <= (datetime.strptime(plant.get('next_watering_date'), '%Y-%m-%d') - datetime.utcnow().date()).days <= 7
+                plant
+                for plant in plants
+                if plant.get("next_watering_date")
+                and 0
+                <= (
+                    datetime.strptime(plant.get("next_watering_date"), "%Y-%m-%d")
+                    - datetime.utcnow().date()
+                ).days
+                <= 7
             ]
         else:
             plants = []
@@ -118,7 +127,9 @@ def list_plants():
 @jwt_required(locations=["cookies"])
 def plant_detail(plant_id):
     user_id = get_jwt_identity()["id"]
-    response = requests.get(f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user_id})
+    response = requests.get(
+        f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user_id}
+    )
     if response.status_code == 200:
         plant = response.json()
         return render_template("plant_detail.html", plant=plant)
@@ -155,14 +166,18 @@ def add_plant():
 @jwt_required(locations=["cookies"])
 def edit_plant(plant_id):
     user = get_jwt_identity()
-    response = requests.get(f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user["id"]})
+    response = requests.get(
+        f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user["id"]}
+    )
 
     if response.status_code != 200:
         flash("Error fetching plant details")
         return redirect(url_for("list_plants"))
 
     plant_data = response.json()
-    plant_data['purchase_date'] = datetime.strptime(plant_data['purchase_date'], '%Y-%m-%d')
+    plant_data["purchase_date"] = datetime.strptime(
+        plant_data["purchase_date"], "%Y-%m-%d"
+    )
     form = PlantForm(data=plant_data)
 
     if form.validate_on_submit():
@@ -170,13 +185,13 @@ def edit_plant(plant_id):
             f"{PLANT_SERVICE_URL}/plants/{plant_id}",
             json={
                 "name": form.name.data,
-                "purchase_date": form.purchase_date.data.strftime('%Y-%m-%d'),
+                "purchase_date": form.purchase_date.data.strftime("%Y-%m-%d"),
                 "light_conditions": form.light_conditions.data,
                 "watering_frequency": form.watering_frequency.data,
                 "fertilizing_frequency": form.fertilizing_frequency.data,
                 "notes": form.notes.data,
-                "user_id": user["id"]
-            }
+                "user_id": user["id"],
+            },
         )
 
         if update_response.status_code == 200:
@@ -192,7 +207,9 @@ def edit_plant(plant_id):
 @jwt_required(locations=["cookies"])
 def delete_plant(plant_id):
     user_id = get_jwt_identity()["id"]
-    response = requests.delete(f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user_id})
+    response = requests.delete(
+        f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user_id}
+    )
     if response.status_code == 200:
         flash("Plant has been deleted successfully.")
     else:
@@ -208,11 +225,19 @@ def notifications():
     if response.status_code == 200:
         plants = response.json()
         upcoming_watering_plants = [
-            plant for plant in plants
-            if plant['next_watering_date']
-               and 0 <= (datetime.fromisoformat(plant['next_watering_date']).date() - datetime.utcnow().date()).days <= 7
+            plant
+            for plant in plants
+            if plant["next_watering_date"]
+            and 0
+            <= (
+                datetime.fromisoformat(plant["next_watering_date"]).date()
+                - datetime.utcnow().date()
+            ).days
+            <= 7
         ]
-        return render_template("notifications.html", upcoming_watering_plants=upcoming_watering_plants)
+        return render_template(
+            "notifications.html", upcoming_watering_plants=upcoming_watering_plants
+        )
     else:
         flash("Failed to load notifications")
         return redirect(url_for("home"))
