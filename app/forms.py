@@ -66,4 +66,5 @@ class UpdateAccountForm(FlaskForm):
     confirm_password = PasswordField(
         "Confirm Password", validators=[EqualTo("password")]
     )
+    current_password = PasswordField("Current Password")
     submit = SubmitField("Update")

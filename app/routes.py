@@ -130,7 +130,7 @@ def add_plant():
             watering_frequency=form.watering_frequency.data,
             fertilizing_frequency=form.fertilizing_frequency.data,
             notes=form.notes.data,
-            owner=user["id"],
+            owner_id=user["id"],
         )
         db.session.add(plant)
         db.session.commit()
@@ -176,7 +176,6 @@ def notifications():
 @app.route("/account", methods=["GET", "POST"])
 @jwt_required(locations=["cookies"])
 def account():
-    user_id = get_jwt_identity()["id"]
     response = requests.get(
         f"{AUTH_SERVICE_URL}/profile",
         headers={
@@ -191,7 +190,6 @@ def account():
                 f"{AUTH_SERVICE_URL}/update",
                 headers={
                     "Authorization": f'Bearer {request.cookies.get("access_token_cookie")}',
-                    "X-CSRFToken": form.csrf_token.data,
                 },
                 json={
                     "username": form.username.data,
