@@ -8,9 +8,8 @@ from flask import (
     request,
     make_response,
 )
-from app import app, db
+from app import app
 from app.forms import SignupForm, LoginForm, PlantForm, UpdateAccountForm
-from app.models import Plant
 from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
@@ -20,20 +19,25 @@ from flask_jwt_extended import (
 )
 
 AUTH_SERVICE_URL = "http://auth_service:5000"
-
+PLANT_SERVICE_URL = "http://plant_service:5000"
 
 @app.route("/")
 @jwt_required(optional=True, locations=["cookies"])
 def home():
     user = get_jwt_identity()
     if user:
-        plants = Plant.query.filter_by(owner_id=user["id"]).limit(5).all()
-        upcoming_watering_plants = [
-            plant
-            for plant in plants
-            if plant.next_watering_date()
-            and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
-        ]
+        response = requests.get(f"{PLANT_SERVICE_URL}/plants", params={"user_id": user["id"]})
+        if response.status_code == 200:
+            plants = response.json()
+
+            upcoming_watering_plants = [
+                plant for plant in plants
+                if plant.get('next_watering_date') and
+                   0 <= (datetime.strptime(plant.get('next_watering_date'), '%Y-%m-%d') - datetime.utcnow().date()).days <= 7
+            ]
+        else:
+            plants = []
+            upcoming_watering_plants = []
         return render_template(
             "home.html",
             plants=plants,
@@ -96,81 +100,122 @@ def logout():
 @jwt_required(locations=["cookies"])
 def list_plants():
     user = get_jwt_identity()
-    query = request.args.get("query")
+    query = request.args.get("query", "")
+    params = {"user_id": user["id"]}
     if query:
-        plants = Plant.query.filter(
-            Plant.owner_id == user["id"], Plant.name.ilike(f"%{query}%")
-        ).all()
+        params["name"] = query
+
+    response = requests.get(f"{PLANT_SERVICE_URL}/plants", params=params)
+    if response.status_code == 200:
+        plants = response.json()
     else:
-        plants = Plant.query.filter_by(owner_id=user["id"]).all()
+        plants = []
+
     return render_template("plants_list.html", plants=plants, query=query)
 
 
 @app.route("/plant/<int:plant_id>")
 @jwt_required(locations=["cookies"])
 def plant_detail(plant_id):
-    user = get_jwt_identity()
-    plant = Plant.query.get_or_404(plant_id)
-    if plant.owner_id != user["id"]:
-        flash("You do not have permission to view this plant.")
+    user_id = get_jwt_identity()["id"]
+    response = requests.get(f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user_id})
+    if response.status_code == 200:
+        plant = response.json()
+        return render_template("plant_detail.html", plant=plant)
+    else:
+        flash("Failed to load plant details")
         return redirect(url_for("list_plants"))
-    return render_template("plant_detail.html", plant=plant)
 
 
 @app.route("/add_plant", methods=["GET", "POST"])
 @jwt_required(locations=["cookies"])
 def add_plant():
-    user = get_jwt_identity()
+    user_id = get_jwt_identity()["id"]
     form = PlantForm()
     if form.validate_on_submit():
-        plant = Plant(
-            name=form.name.data,
-            purchase_date=form.purchase_date.data,
-            light_conditions=form.light_conditions.data,
-            watering_frequency=form.watering_frequency.data,
-            fertilizing_frequency=form.fertilizing_frequency.data,
-            notes=form.notes.data,
-            owner_id=user["id"],
-        )
-        db.session.add(plant)
-        db.session.commit()
-        flash("Plant has been added successfully.")
-        return redirect(url_for("list_plants"))
+        data = {
+            "name": form.name.data,
+            "purchase_date": form.purchase_date.data.isoformat(),
+            "light_conditions": form.light_conditions.data,
+            "watering_frequency": form.watering_frequency.data,
+            "fertilizing_frequency": form.fertilizing_frequency.data,
+            "notes": form.notes.data,
+            "user_id": user_id,
+        }
+        response = requests.post(f"{PLANT_SERVICE_URL}/plants", json=data)
+        if response.status_code == 201:
+            flash("Plant has been added successfully.")
+            return redirect(url_for("list_plants"))
+        else:
+            flash("Failed to add plant")
     return render_template("add_plant.html", form=form)
+
+
+@app.route("/edit_plant/<int:plant_id>", methods=["GET", "POST"])
+@jwt_required(locations=["cookies"])
+def edit_plant(plant_id):
+    user = get_jwt_identity()
+    response = requests.get(f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user["id"]})
+
+    if response.status_code != 200:
+        flash("Error fetching plant details")
+        return redirect(url_for("list_plants"))
+
+    plant_data = response.json()
+    plant_data['purchase_date'] = datetime.strptime(plant_data['purchase_date'], '%Y-%m-%d')
+    form = PlantForm(data=plant_data)
+
+    if form.validate_on_submit():
+        update_response = requests.put(
+            f"{PLANT_SERVICE_URL}/plants/{plant_id}",
+            json={
+                "name": form.name.data,
+                "purchase_date": form.purchase_date.data.strftime('%Y-%m-%d'),
+                "light_conditions": form.light_conditions.data,
+                "watering_frequency": form.watering_frequency.data,
+                "fertilizing_frequency": form.fertilizing_frequency.data,
+                "notes": form.notes.data,
+                "user_id": user["id"]
+            }
+        )
+
+        if update_response.status_code == 200:
+            flash("Plant updated successfully.")
+            return redirect(url_for("list_plants"))
+        else:
+            flash("Error updating plant.")
+
+    return render_template("edit_plant.html", form=form, plant_id=plant_id)
 
 
 @app.route("/delete_plant/<int:plant_id>", methods=["POST"])
 @jwt_required(locations=["cookies"])
 def delete_plant(plant_id):
-    user = get_jwt_identity()
-    plant = Plant.query.get_or_404(plant_id)
-    if plant.owner_id != user["id"]:
-        flash("You do not have permission to delete this plant.")
-        return redirect(url_for("list_plants"))
-    db.session.delete(plant)
-    db.session.commit()
-    flash("Plant has been deleted successfully.")
+    user_id = get_jwt_identity()["id"]
+    response = requests.delete(f"{PLANT_SERVICE_URL}/plants/{plant_id}", params={"user_id": user_id})
+    if response.status_code == 200:
+        flash("Plant has been deleted successfully.")
+    else:
+        flash("Failed to delete plant")
     return redirect(url_for("list_plants"))
 
 
 @app.route("/notifications")
 @jwt_required(locations=["cookies"])
 def notifications():
-    user = get_jwt_identity()
-    if user:
-        plants = Plant.query.filter_by(owner_id=user["id"]).all()
+    user_id = get_jwt_identity()["id"]
+    response = requests.get(f"{PLANT_SERVICE_URL}/plants", params={"user_id": user_id})
+    if response.status_code == 200:
+        plants = response.json()
         upcoming_watering_plants = [
-            plant
-            for plant in plants
-            if plant.next_watering_date()
-            and 0 <= (plant.next_watering_date() - datetime.utcnow().date()).days <= 7
+            plant for plant in plants
+            if plant['next_watering_date']
+               and 0 <= (datetime.fromisoformat(plant['next_watering_date']).date() - datetime.utcnow().date()).days <= 7
         ]
-        return render_template(
-            "notifications.html", upcoming_watering_plants=upcoming_watering_plants
-        )
+        return render_template("notifications.html", upcoming_watering_plants=upcoming_watering_plants)
     else:
-        flash("You need to be logged in to access this page.")
-        return redirect(url_for("login"))
+        flash("Failed to load notifications")
+        return redirect(url_for("home"))
 
 
 @app.route("/account", methods=["GET", "POST"])
