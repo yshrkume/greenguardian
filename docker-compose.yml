@@ -49,3 +49,15 @@ services:
       DATABASE_URL: sqlite:///plant.db
     volumes:
       - ./plant:/app
+
+  notification_service:
+    build:
+      context: ./notification
+    command: flask run --host=0.0.0.0 --port=5000 --reload
+    ports:
+      - "5004:5000"
+      - "4445:4444"
+    environment:
+      FLASK_ENV: development
+    volumes:
+      - ./notification:/app

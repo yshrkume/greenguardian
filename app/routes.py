@@ -20,6 +20,7 @@ from flask_jwt_extended import (
 
 AUTH_SERVICE_URL = "http://auth_service:5000"
 PLANT_SERVICE_URL = "http://plant_service:5000"
+NOTIFICATION_SERVICE_URL = "http://notification_service:5000"
 
 
 @app.route("/")
@@ -32,25 +33,38 @@ def home():
         )
         if response.status_code == 200:
             plants = response.json()
-
-            upcoming_watering_plants = [
-                plant
-                for plant in plants
-                if plant.get("next_watering_date")
-                and 0
-                <= (
-                    datetime.strptime(plant.get("next_watering_date"), "%Y-%m-%d")
-                    - datetime.utcnow().date()
-                ).days
-                <= 7
-            ]
         else:
             plants = []
+
+        # import remote_pdb; remote_pdb.set_trace(host="0.0.0.0", port=4444)
+
+        watering_response = requests.post(
+            f"{NOTIFICATION_SERVICE_URL}/watering_notifications",
+            json={"plants": plants},
+        )
+        if watering_response.status_code == 200:
+            upcoming_watering_plants = watering_response.json().get(
+                "upcoming_watering_plants", []
+            )
+        else:
             upcoming_watering_plants = []
+
+        fertilizing_response = requests.post(
+            f"{NOTIFICATION_SERVICE_URL}/fertilizing_notifications",
+            json={"plants": plants},
+        )
+        if fertilizing_response.status_code == 200:
+            upcoming_fertilizing_plants = fertilizing_response.json().get(
+                "upcoming_fertilizing_plants", []
+            )
+        else:
+            upcoming_fertilizing_plants = []
+
         return render_template(
             "home.html",
             plants=plants,
             upcoming_watering_plants=upcoming_watering_plants,
+            upcoming_fertilizing_plants=upcoming_fertilizing_plants,
             user=user,
         )
     else:

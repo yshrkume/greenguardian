@@ -5,11 +5,26 @@
     {% if user %}
         Hello, {{ user['username'] }}
         <h2>Upcoming Watering Notifications</h2>
+        {% if upcoming_watering_plants|length == 0 %}
+        <p>You have no watering notifications for the next week.</p>
+        {% else %}
         <ul>
             {% for plant in upcoming_watering_plants %}
-            <li>{{ plant.name }}: Next watering on {{ plant.next_watering_date().strftime('%Y-%m-%d') }}</li>
+            <li>{{ plant.name }}: Next watering on {{ plant.next_watering_date }}</li>
             {% endfor %}
         </ul>
+        {% endif %}
+
+        <h2>Upcoming Fertilizing Notifications</h2>
+        {% if upcoming_fertilizing_plants|length == 0 %}
+        <p>You have no fertilizing notifications for the next week.</p>
+        {% else %}
+        <ul>
+            {% for plant in upcoming_fertilizing_plants %}
+            <li>{{ plant.name }}: Next fertilizing on {{ plant.next_fertilizing_date }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
         <a href="{{ url_for('notifications') }}" class="btn btn-primary">View All Notifications</a>
 
         <h2>Your Plants</h2>

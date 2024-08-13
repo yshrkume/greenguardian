@@ -49,6 +49,7 @@ class PlantForm(FlaskForm):
         "Fertilizing Frequency",
         choices=[
             ("never", "Never"),
+            ("weekly", "Weekly"),
             ("monthly", "Monthly"),
             ("bi-monthly", "Bi-monthly"),
             ("seasonally", "Seasonally"),
