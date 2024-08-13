@@ -1,16 +1,33 @@
+import requests
 from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request
-from app import app, db, login_manager
+from flask import (
+    render_template,
+    redirect,
+    url_for,
+    flash,
+    request,
+    make_response,
+)
+from app import app, db
 from app.forms import SignupForm, LoginForm, PlantForm, UpdateAccountForm
-from app.models import User, Plant
-from flask_login import login_user, logout_user, login_required, current_user
-from urllib.parse import urlparse
+from app.models import Plant
+from flask_jwt_extended import (
+    jwt_required,
+    get_jwt_identity,
+    create_access_token,
+    set_access_cookies,
+    unset_jwt_cookies,
+)
+
+AUTH_SERVICE_URL = "http://auth_service:5000"
 
 
 @app.route("/")
+@jwt_required(optional=True, locations=["cookies"])
 def home():
-    if current_user.is_authenticated:
-        plants = Plant.query.filter_by(owner_id=current_user.id).limit(5).all()
+    user = get_jwt_identity()
+    if user:
+        plants = Plant.query.filter_by(owner_id=user["id"]).limit(5).all()
         upcoming_watering_plants = [
             plant
             for plant in plants
@@ -21,7 +38,7 @@ def home():
             "home.html",
             plants=plants,
             upcoming_watering_plants=upcoming_watering_plants,
-            user=current_user,
+            user=user,
         )
     else:
         return render_template("home.html")
@@ -31,12 +48,20 @@ def home():
 def signup():
     form = SignupForm()
     if form.validate_on_submit():
-        user = User(username=form.username.data, email=form.email.data)
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        flash("Congratulations, you are now a registered user!")
-        return redirect(url_for("login"))
+        response = requests.post(
+            f"{AUTH_SERVICE_URL}/register",
+            json={
+                "username": form.username.data,
+                "email": form.email.data,
+                "password": form.password.data,
+            },
+        )
+        if response.status_code == 201:
+            flash("Congratulations, you are now a registered user!")
+            return redirect(url_for("login"))
+        else:
+            flash("Error registering user.")
+            return redirect(url_for("signup"))
     return render_template("signup.html", form=form)
 
 
@@ -44,55 +69,58 @@ def signup():
 def login():
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user is None or not user.check_password(form.password.data):
-            flash("Invalid email or password")
+        response = requests.post(
+            f"{AUTH_SERVICE_URL}/login",
+            json={"username": form.username.data, "password": form.password.data},
+        )
+        if response.status_code == 200:
+            token = response.json().get("access_token")
+            resp = make_response(redirect(url_for("home")))
+            set_access_cookies(resp, token)
+            return resp
+        else:
+            flash("Invalid username or password")
             return redirect(url_for("login"))
-        login_user(user)
-        next_page = request.args.get("next")
-        if not next_page or urlparse(next_page).netloc != "":
-            next_page = url_for("home")
-        return redirect(next_page)
     return render_template("login.html", form=form)
 
 
 @app.route("/logout")
 def logout():
-    logout_user()
-    return redirect(url_for("home"))
-
-
-@login_manager.user_loader
-def load_user(id):
-    return User.query.get(int(id))
+    resp = make_response(redirect(url_for("home")))
+    unset_jwt_cookies(resp)
+    flash("Logout successful")
+    return resp
 
 
 @app.route("/plants", methods=["GET", "POST"])
-@login_required
+@jwt_required(locations=["cookies"])
 def list_plants():
+    user = get_jwt_identity()
     query = request.args.get("query")
     if query:
         plants = Plant.query.filter(
-            Plant.owner_id == current_user.id, Plant.name.ilike(f"%{query}%")
+            Plant.owner_id == user["id"], Plant.name.ilike(f"%{query}%")
         ).all()
     else:
-        plants = Plant.query.filter_by(owner_id=current_user.id).all()
+        plants = Plant.query.filter_by(owner_id=user["id"]).all()
     return render_template("plants_list.html", plants=plants, query=query)
 
 
 @app.route("/plant/<int:plant_id>")
-@login_required
+@jwt_required(locations=["cookies"])
 def plant_detail(plant_id):
+    user = get_jwt_identity()
     plant = Plant.query.get_or_404(plant_id)
-    if plant.owner_id != current_user.id:
+    if plant.owner_id != user["id"]:
         flash("You do not have permission to view this plant.")
         return redirect(url_for("list_plants"))
     return render_template("plant_detail.html", plant=plant)
 
 
 @app.route("/add_plant", methods=["GET", "POST"])
-@login_required
+@jwt_required(locations=["cookies"])
 def add_plant():
+    user = get_jwt_identity()
     form = PlantForm()
     if form.validate_on_submit():
         plant = Plant(
@@ -102,7 +130,7 @@ def add_plant():
             watering_frequency=form.watering_frequency.data,
             fertilizing_frequency=form.fertilizing_frequency.data,
             notes=form.notes.data,
-            owner=current_user,
+            owner=user["id"],
         )
         db.session.add(plant)
         db.session.commit()
@@ -112,10 +140,11 @@ def add_plant():
 
 
 @app.route("/delete_plant/<int:plant_id>", methods=["POST"])
-@login_required
+@jwt_required(locations=["cookies"])
 def delete_plant(plant_id):
+    user = get_jwt_identity()
     plant = Plant.query.get_or_404(plant_id)
-    if plant.owner_id != current_user.id:
+    if plant.owner_id != user["id"]:
         flash("You do not have permission to delete this plant.")
         return redirect(url_for("list_plants"))
     db.session.delete(plant)
@@ -125,10 +154,11 @@ def delete_plant(plant_id):
 
 
 @app.route("/notifications")
-@login_required
+@jwt_required(locations=["cookies"])
 def notifications():
-    if current_user.is_authenticated:
-        plants = Plant.query.filter_by(owner_id=current_user.id).all()
+    user = get_jwt_identity()
+    if user:
+        plants = Plant.query.filter_by(owner_id=user["id"]).all()
         upcoming_watering_plants = [
             plant
             for plant in plants
@@ -144,18 +174,41 @@ def notifications():
 
 
 @app.route("/account", methods=["GET", "POST"])
-@login_required
+@jwt_required(locations=["cookies"])
 def account():
-    form = UpdateAccountForm()
-    if form.validate_on_submit():
-        current_user.username = form.username.data
-        current_user.email = form.email.data
-        if form.password.data:
-            current_user.set_password(form.password.data)
-        db.session.commit()
-        flash("Your account has been updated.")
-        return redirect(url_for("account"))
-    elif request.method == "GET":
-        form.username.data = current_user.username
-        form.email.data = current_user.email
-    return render_template("account.html", title="Account", form=form)
+    user_id = get_jwt_identity()["id"]
+    response = requests.get(
+        f"{AUTH_SERVICE_URL}/profile",
+        headers={
+            "Authorization": f'Bearer {request.cookies.get("access_token_cookie")}'
+        },
+    )
+    if response.status_code == 200:
+        user_data = response.json()
+        form = UpdateAccountForm()
+        if form.validate_on_submit():
+            update_response = requests.put(
+                f"{AUTH_SERVICE_URL}/update",
+                headers={
+                    "Authorization": f'Bearer {request.cookies.get("access_token_cookie")}',
+                    "X-CSRFToken": form.csrf_token.data,
+                },
+                json={
+                    "username": form.username.data,
+                    "email": form.email.data,
+                    "password": form.password.data,
+                    "current_password": form.current_password.data,
+                },
+            )
+            if update_response.status_code == 200:
+                flash("Your account has been updated.")
+                return redirect(url_for("account"))
+            else:
+                flash("Failed to update account.")
+        elif request.method == "GET":
+            form.username.data = user_data["username"]
+            form.email.data = user_data["email"]
+        return render_template("account.html", form=form)
+    else:
+        flash("Error fetching user profile")
+        return redirect(url_for("home"))

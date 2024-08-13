@@ -9,7 +9,8 @@ services:
       - "3306:3306"
 
   web-dev:
-    build: .
+    build:
+      context: ./app
     command: flask run --host=0.0.0.0 --port=5000 --reload
     volumes:
       - ./app:/app
@@ -21,4 +22,17 @@ services:
     environment:
       FLASK_ENV: development
       FLASK_APP: /app/app.py
+      JWT_SECRET_KEY: secret_key
       DATABASE_URL: mysql+pymysql://root:password@db/flaskdb
+
+  auth_service:
+    build:
+      context: ./auth
+    command: flask run --host=0.0.0.0 --port=5000 --reload
+    ports:
+      - "5002:5000"
+    environment:
+      FLASK_ENV: development
+      JWT_SECRET_KEY: secret_key
+    volumes:
+      - ./auth:/app
