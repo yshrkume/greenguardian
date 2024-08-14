@@ -1,14 +1,5 @@
 services:
-  db:
-    image: mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: flaskdb
-    ports:
-      - "3306:3306"
-
-  web-dev:
+  gg-dev:
     build:
       context: ./app
     command: flask run --host=0.0.0.0 --port=5000 --reload
@@ -17,13 +8,10 @@ services:
     ports:
       - "5001:5000"
       - "4444:4444"
-    depends_on:
-      - db
     environment:
       FLASK_ENV: development
       FLASK_APP: /app/app.py
       JWT_SECRET_KEY: secret_key
-      DATABASE_URL: mysql+pymysql://root:password@db/flaskdb
 
   auth_service:
     build:
