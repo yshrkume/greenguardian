@@ -1,5 +1,5 @@
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import (
     render_template,
     redirect,
@@ -38,33 +38,25 @@ def home():
 
         # import remote_pdb; remote_pdb.set_trace(host="0.0.0.0", port=4444)
 
-        watering_response = requests.post(
-            f"{NOTIFICATION_SERVICE_URL}/watering_notifications",
-            json={"plants": plants},
-        )
-        if watering_response.status_code == 200:
-            upcoming_watering_plants = watering_response.json().get(
-                "upcoming_watering_plants", []
-            )
-        else:
-            upcoming_watering_plants = []
+        start_date = datetime.utcnow().strftime('%Y-%m-%d')
+        end_date = (datetime.utcnow() + timedelta(days=7)).strftime('%Y-%m-%d')
 
-        fertilizing_response = requests.post(
-            f"{NOTIFICATION_SERVICE_URL}/fertilizing_notifications",
-            json={"plants": plants},
+        watering_response = requests.post(
+            f"http://notification_service:5000/watering_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants}
         )
-        if fertilizing_response.status_code == 200:
-            upcoming_fertilizing_plants = fertilizing_response.json().get(
-                "upcoming_fertilizing_plants", []
-            )
-        else:
-            upcoming_fertilizing_plants = []
+        fertilizing_response = requests.post(
+            f"http://notification_service:5000/fertilizing_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants}
+        )
+        watering_notifications = watering_response.json().get("upcoming_watering_plants", [])
+        fertilizing_notifications = fertilizing_response.json().get("upcoming_fertilizing_plants", [])
 
         return render_template(
             "home.html",
             plants=plants,
-            upcoming_watering_plants=upcoming_watering_plants,
-            upcoming_fertilizing_plants=upcoming_fertilizing_plants,
+            upcoming_watering_plants=watering_notifications,
+            upcoming_fertilizing_plants=fertilizing_notifications,
             user=user,
         )
     else:
@@ -234,27 +226,37 @@ def delete_plant(plant_id):
 @app.route("/notifications")
 @jwt_required(locations=["cookies"])
 def notifications():
-    user_id = get_jwt_identity()["id"]
-    response = requests.get(f"{PLANT_SERVICE_URL}/plants", params={"user_id": user_id})
-    if response.status_code == 200:
+    user = get_jwt_identity()
+    if user:
+        response = requests.get(
+            f"http://plant_service:5000/plants?user_id={user['id']}"
+        )
         plants = response.json()
-        upcoming_watering_plants = [
-            plant
-            for plant in plants
-            if plant["next_watering_date"]
-            and 0
-            <= (
-                datetime.fromisoformat(plant["next_watering_date"]).date()
-                - datetime.utcnow().date()
-            ).days
-            <= 7
-        ]
+
+        start_date = datetime.utcnow().strftime('%Y-%m-%d')
+        end_date = (datetime.utcnow() + timedelta(days=90)).strftime('%Y-%m-%d')
+
+        watering_response = requests.post(
+            f"http://notification_service:5000/watering_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants}
+        )
+        fertilizing_response = requests.post(
+            f"http://notification_service:5000/fertilizing_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants}
+        )
+
+        watering_notifications = watering_response.json().get("upcoming_watering_plants", [])
+        fertilizing_notifications = fertilizing_response.json().get("upcoming_fertilizing_plants", [])
+
         return render_template(
-            "notifications.html", upcoming_watering_plants=upcoming_watering_plants
+            "notifications.html",
+            watering_notifications=watering_notifications,
+            fertilizing_notifications=fertilizing_notifications,
+            user=user,
         )
     else:
-        flash("Failed to load notifications")
-        return redirect(url_for("home"))
+        flash("You need to be logged in to access this page.")
+        return redirect(url_for("login"))
 
 
 @app.route("/account", methods=["GET", "POST"])

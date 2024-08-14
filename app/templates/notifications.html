@@ -1,12 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Notifications{% endblock %}
 {% block content %}
-<h1>Notifications</h1>
-<h2>Upcoming Watering Notifications</h2>
-<ul>
-    {% for plant in upcoming_watering_plants %}
-    <li>{{ plant.name }}: Next watering on {{ plant.next_watering_date().strftime('%Y-%m-%d') }}</li>
-    {% endfor %}
-</ul>
-<a href="{{ url_for('home') }}" class="btn btn-primary">Back to Home</a>
+    <h1>Notifications</h1>
+        <h2>Watering Notifications for the Next 3 Months</h2>
+        {% if watering_notifications %}
+        <ul>
+            {% for plant in watering_notifications %}
+            <li>{{ plant.name }}: Next watering on {{ plant.next_watering_date }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No watering notifications for the next 3 months.</p>
+        {% endif %}
+
+        <h2>Fertilizing Notifications for the Next 3 Months</h2>
+        {% if fertilizing_notifications %}
+        <ul>
+            {% for plant in fertilizing_notifications %}
+            <li>{{ plant.name }}: Next fertilizing on {{ plant.next_fertilizing_date }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No fertilizing notifications for the next 3 months.</p>
+        {% endif %}
+    <a href="{{ url_for('home') }}" class="btn btn-primary">Back to Home</a>
 {% endblock %}
