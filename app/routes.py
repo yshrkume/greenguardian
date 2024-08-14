@@ -21,6 +21,7 @@ from flask_jwt_extended import (
 AUTH_SERVICE_URL = "http://auth_service:5000"
 PLANT_SERVICE_URL = "http://plant_service:5000"
 NOTIFICATION_SERVICE_URL = "http://notification_service:5000"
+STATISTICS_SERVICE_URL = "http://statistics_service:5000"
 
 
 @app.route("/")
@@ -36,27 +37,50 @@ def home():
         else:
             plants = []
 
-        # import remote_pdb; remote_pdb.set_trace(host="0.0.0.0", port=4444)
-
-        start_date = datetime.utcnow().strftime('%Y-%m-%d')
-        end_date = (datetime.utcnow() + timedelta(days=7)).strftime('%Y-%m-%d')
+        start_date = datetime.utcnow().strftime("%Y-%m-%d")
+        end_date = (datetime.utcnow() + timedelta(days=7)).strftime("%Y-%m-%d")
 
         watering_response = requests.post(
-            f"http://notification_service:5000/watering_notifications?start_date={start_date}&end_date={end_date}",
-            json={"plants": plants}
+            f"{NOTIFICATION_SERVICE_URL}/watering_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants},
         )
         fertilizing_response = requests.post(
-            f"http://notification_service:5000/fertilizing_notifications?start_date={start_date}&end_date={end_date}",
-            json={"plants": plants}
+            f"{NOTIFICATION_SERVICE_URL}/fertilizing_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants},
         )
-        watering_notifications = watering_response.json().get("upcoming_watering_plants", [])
-        fertilizing_notifications = fertilizing_response.json().get("upcoming_fertilizing_plants", [])
+        watering_notifications = watering_response.json().get(
+            "upcoming_watering_plants", []
+        )
+        fertilizing_notifications = fertilizing_response.json().get(
+            "upcoming_fertilizing_plants", []
+        )
+
+        statistics_payload = {"plants": plants}
+        freq_counts = requests.post(
+            f"{STATISTICS_SERVICE_URL}/watering_frequency_count",
+            json=statistics_payload,
+        ).json()
+
+        tasks_response = requests.post(
+            f"{STATISTICS_SERVICE_URL}/upcoming_tasks_count",
+            json={"plants": plants},
+        )
+        if tasks_response.status_code == 200:
+            tasks_data = tasks_response.json()
+            upcoming_watering_tasks = tasks_data.get("upcoming_watering_tasks", 0)
+            upcoming_fertilizing_tasks = tasks_data.get("upcoming_fertilizing_tasks", 0)
+        else:
+            upcoming_watering_tasks = 0
+            upcoming_fertilizing_tasks = 0
 
         return render_template(
             "home.html",
             plants=plants,
             upcoming_watering_plants=watering_notifications,
             upcoming_fertilizing_plants=fertilizing_notifications,
+            freq_counts=freq_counts,
+            upcoming_watering_tasks=upcoming_watering_tasks,
+            upcoming_fertilizing_tasks=upcoming_fertilizing_tasks,
             user=user,
         )
     else:
@@ -229,24 +253,28 @@ def notifications():
     user = get_jwt_identity()
     if user:
         response = requests.get(
-            f"http://plant_service:5000/plants?user_id={user['id']}"
+            f"{PLANT_SERVICE_URL}/plants?user_id={user['id']}"
         )
         plants = response.json()
 
-        start_date = datetime.utcnow().strftime('%Y-%m-%d')
-        end_date = (datetime.utcnow() + timedelta(days=90)).strftime('%Y-%m-%d')
+        start_date = datetime.utcnow().strftime("%Y-%m-%d")
+        end_date = (datetime.utcnow() + timedelta(days=90)).strftime("%Y-%m-%d")
 
         watering_response = requests.post(
-            f"http://notification_service:5000/watering_notifications?start_date={start_date}&end_date={end_date}",
-            json={"plants": plants}
+            f"{NOTIFICATION_SERVICE_URL}/watering_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants},
         )
         fertilizing_response = requests.post(
-            f"http://notification_service:5000/fertilizing_notifications?start_date={start_date}&end_date={end_date}",
-            json={"plants": plants}
+            f"{NOTIFICATION_SERVICE_URL}/fertilizing_notifications?start_date={start_date}&end_date={end_date}",
+            json={"plants": plants},
         )
 
-        watering_notifications = watering_response.json().get("upcoming_watering_plants", [])
-        fertilizing_notifications = fertilizing_response.json().get("upcoming_fertilizing_plants", [])
+        watering_notifications = watering_response.json().get(
+            "upcoming_watering_plants", []
+        )
+        fertilizing_notifications = fertilizing_response.json().get(
+            "upcoming_fertilizing_plants", []
+        )
 
         return render_template(
             "notifications.html",

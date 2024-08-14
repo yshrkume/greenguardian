@@ -4,6 +4,9 @@
     <h1>Welcome to GreenGuardian</h1>
     {% if user %}
         Hello, {{ user['username'] }}
+
+        <h2>Tasks Overview (Next 1 Week)</h2>
+        <p>You have {{ upcoming_watering_tasks }} watering tasks and {{ upcoming_fertilizing_tasks }} fertilizing tasks in the next week.</p>
         <h2>Upcoming Watering Notifications</h2>
         {% if upcoming_watering_plants|length == 0 %}
         <p>You have no watering notifications for the next week.</p>
@@ -26,6 +29,15 @@
         </ul>
         {% endif %}
         <a href="{{ url_for('notifications') }}" class="btn btn-primary">View Notifications for the Next 3 Months</a>
+
+        <h2>Watering Frequency Statistics</h2>
+        <ul>
+            <li>Daily: {{ freq_counts['daily'] }}</li>
+            <li>Every 3 Days: {{ freq_counts['every 3 days'] }}</li>
+            <li>Weekly: {{ freq_counts['weekly'] }}</li>
+            <li>Bi-Weekly: {{ freq_counts['bi-weekly'] }}</li>
+            <li>Monthly: {{ freq_counts['monthly'] }}</li>
+        </ul>
 
         <h2>Your Plants</h2>
         {% if plants %}
