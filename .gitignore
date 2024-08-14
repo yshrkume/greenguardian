@@ -165,6 +165,7 @@ cython_debug/
 .idea/
 app/.envrc
 
-auth
-plant
-notification
+gg-auth
+gg-plant
+gg-notification
+gg-statistics
