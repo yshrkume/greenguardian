@@ -22,6 +22,7 @@ AUTH_SERVICE_URL = "http://auth_service:5000"
 PLANT_SERVICE_URL = "http://plant_service:5000"
 NOTIFICATION_SERVICE_URL = "http://notification_service:5000"
 STATISTICS_SERVICE_URL = "http://statistics_service:5000"
+GREETING_SERVICE_URL = "http://greeting_service:5000"
 
 
 @app.route("/")
@@ -73,6 +74,8 @@ def home():
             upcoming_watering_tasks = 0
             upcoming_fertilizing_tasks = 0
 
+        greeting_response = requests.get(f"{GREETING_SERVICE_URL}/greetAPI")
+        greeting = greeting_response.json().get("greeting", "")
         return render_template(
             "home.html",
             plants=plants,
@@ -81,6 +84,7 @@ def home():
             freq_counts=freq_counts,
             upcoming_watering_tasks=upcoming_watering_tasks,
             upcoming_fertilizing_tasks=upcoming_fertilizing_tasks,
+            greeting=greeting,
             user=user,
         )
     else:
@@ -252,9 +256,7 @@ def delete_plant(plant_id):
 def notifications():
     user = get_jwt_identity()
     if user:
-        response = requests.get(
-            f"{PLANT_SERVICE_URL}/plants?user_id={user['id']}"
-        )
+        response = requests.get(f"{PLANT_SERVICE_URL}/plants?user_id={user['id']}")
         plants = response.json()
 
         start_date = datetime.utcnow().strftime("%Y-%m-%d")

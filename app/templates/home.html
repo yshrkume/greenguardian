@@ -3,7 +3,7 @@
 {% block content %}
     <h1>Welcome to GreenGuardian</h1>
     {% if user %}
-        Hello, {{ user['username'] }}
+        {{ greeting }}, {{ user['username'] }}
 
         <h2>Tasks Overview (Next 1 Week)</h2>
         <p>You have {{ upcoming_watering_tasks }} watering tasks and {{ upcoming_fertilizing_tasks }} fertilizing tasks in the next week.</p>
